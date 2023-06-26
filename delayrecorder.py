@@ -45,7 +45,8 @@ def parse_arguments():
         "This is the filename used when using the '--readcsv' option as well.",
     )
     parser.add_argument(
-        "num_measurements",
+        "-num_measurements",
+        "-n",
         nargs="?",
         default=100,
         type=int,

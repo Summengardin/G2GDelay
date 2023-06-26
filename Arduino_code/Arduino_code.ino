@@ -22,7 +22,7 @@
   maximum number of samples (NUM_SAMPLES) also defines maximum G2G delay that can be measured.
   2000 proved to be a good tradeoff between maximum measurable G2G delay and accuracy */
 #define SAMPLING_RATE    2000
-#define NUM_SAMPLES      2000  // Number of recorded samples during one msmt process. Do not change.
+#define NUM_SAMPLES      600  // 2000 // Number of recorded samples during one msmt process. Do not change.
 #define TIME_BETWEEN      645  // Time between two measurements, in milliseconds. Do not change.
 
 // Global variables
@@ -43,8 +43,8 @@ unsigned int  t_photoTransTrig         = 0;  // When a brightness increase was n
 //Timer settings and pin assignments
 const unsigned int timer1_period     = 65535;  // timer period in microseconds, see http://playground.arduino.cc/code/timer1
 const unsigned int pin_LED              = 13;  // the index of the LED pin, see circuit.pdf
-const unsigned int pin_PT                = 5;  // PT analog input pin
-const unsigned int pin_Randomseed        = 0;  // Random seed for the time between measurements
+const unsigned int pin_PT                = A5;  // PT analog input pin
+const unsigned int pin_Randomseed        = A0;  // Random seed for the time between measurements
 unsigned int randomSeedVal               = 0;  // Random value generated from multiple analog pin measurements
 
 void setup() {
@@ -53,6 +53,7 @@ void setup() {
 
   // initialize the lightEmitterLED pin as an output:
   pinMode(pin_LED, OUTPUT);
+  pinMode(pin_PT, INPUT);
 
   // generate a random seed value by taking the LSB of 32 analogRead() measurements, see https://forum.arduino.cc/t/using-analogread-on-floating-pin-for-random-number-generator-seeding-generator/100936/3
   for (int i = 0; i < 32; i++)
