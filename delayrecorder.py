@@ -65,6 +65,13 @@ def parse_arguments():
         help="Reads a previously generated CSV and plots it. "
         "Be sure to provide the name of the CSV file if it's not the default name.",
     )
+    parser.add_argument(
+        "--calibrate",
+        "-c",
+        action="store_true",
+        help="Calibrate sensor before running measurements."
+        "This will check the sensor values for when the led is on and off, and set the threshold thereafter",
+    )
 
     args = parser.parse_args()
     if args.filename.suffix != ".csv":
@@ -79,17 +86,20 @@ def find_arduino_on_serial_port() -> serial.Serial:
         if device.manufacturer is not None:
             if "Arduino" in device.manufacturer:
                 print(f"Found Arduino at {device[0]}")
-                return serial.Serial(device[0], 115200, timeout=5)
+                return serial.Serial(device[0], 115200, timeout=10)
 
     raise ConnectionRefusedError("Did not find Arduino on any serial port. Is it connected?")
 
 
-def read_measurements_from_arduino(num_measurements: int, quiet_mode: bool) -> List[float]:
-    serial = find_arduino_on_serial_port()
+def read_measurements_from_arduino(serial: serial.Serial, num_measurements: int, quiet_mode: bool) -> List[float]:
+    
+    if num_measurements > 100: num_measurements = 100
 
     print(f"Collecting {num_measurements} measurements from the Arduino")
     if quiet_mode:
         print("Running in quiet mode, won't print the measurements to the terminal")
+
+    initMeasurement(serial, num_measurements)
 
     # Read messages from Arduino
     timeout = time.time() + 0.01
@@ -125,8 +135,8 @@ def read_measurements_from_arduino(num_measurements: int, quiet_mode: bool) -> L
             else:
                 print(
                     """Did not receive msmt data from the Arduino for 5 seconds.
-Is the phototransistor sensing the LED on the screen?
-Is the correct side of the PT pointing towards the screen (the flat side with the knob on it)?
+Is the LED showing up on the screen?
+Is the phototransistor pointing towards the screen?
 Is the screen brightness high enough (max recommended)?"""
                 )
                 init_message = 1
@@ -187,13 +197,17 @@ def generate_stats(measurements: List[float]) -> Stats:
 
 
 def plot_results(measurements: List[float], stats: Stats, png_file: Path) -> None:
-    plt.hist(measurements, bins=20)
-    plt.gcf().canvas.manager.set_window_title(png_file.name)
-    plt.title("Latency Histogram")
-    plt.xlabel("Latency (ms)")
-    plt.ylabel("Frequency")
-
-    ax = plt.gca()
+    
+    # Histogram
+    fig_h = plt.figure()
+    ax_h = fig_h.add_subplot(111)
+    
+    ax_h.hist(measurements, bins=20) 
+    fig_h.canvas.manager.set_window_title(png_file.name)
+    ax_h.set_title("Latency Histogram")
+    ax_h.set_xlabel("Latency (ms)")
+    ax_h.set_ylabel("Frequency")
+    
     props = dict(boxstyle="round", facecolor="wheat", alpha=0.5)
     textstr1 = "\n".join(
         (
@@ -203,11 +217,11 @@ def plot_results(measurements: List[float], stats: Stats, png_file: Path) -> Non
         )
     )
     # place it at position x=0.05, y=0.95, relative to the top and left of the box
-    ax.text(
+    ax_h.text(
         0.05,
         0.95,
         textstr1,
-        transform=ax.transAxes,
+        transform=ax_h.transAxes,
         fontsize=14,
         verticalalignment="top",
         horizontalalignment="left",
@@ -215,20 +229,51 @@ def plot_results(measurements: List[float], stats: Stats, png_file: Path) -> Non
     )
     textstr2 = "\n".join((r"$\mu=%.2f$" % (stats.mean_delay,), r"$\sigma=%.2f$" % (stats.std_dev,)))
     # place it at position x=0.95, y=0.90, relative to the top and right of the box
-    ax.text(
+    ax_h.text(
         0.95,
         0.95,
         textstr2,
-        transform=ax.transAxes,
+        transform=ax_h.transAxes,
         fontsize=14,
         verticalalignment="top",
         horizontalalignment="right",
         bbox=props,
     )
 
-    plt.savefig(png_file)
-    print(f"Saved histogram to {png_file}")
+  
+    # Linear plot
+    fig_l = plt.figure()
+    ax_l = fig_l.add_subplot(111)
+
+    fig_l.canvas.manager.set_window_title("Linear plot")
+    x_range = range(len(measurements))
+    ax_l.plot(x_range, measurements, marker='o')  # Plot measurements
+
     plt.show()
+
+
+def writeToSerial(serial: serial.Serial, data):
+    #print(f"Writing to serial: {data}")
+    serial.write(data.encode())
+    time.sleep(0.05)
+    #response = serial.readline().decode().rstrip('\r\n')
+    #print("Done calibrating. Results:")     
+    #print(response + "\n")
+
+
+def calibrate(serial: serial.Serial):
+    writeToSerial(serial, "cali")
+    response = serial.readline().decode().rstrip('\r\n')
+    print("Done calibrating. Results:")     
+    print(response + "\n")
+
+
+def initMeasurement(serial: serial.Serial, numMeasurement):
+    writeToSerial(serial, "meas")
+    response = serial.readline().decode().rstrip('\r\n')
+    writeToSerial(serial, str(numMeasurement))
+
+
 
 
 def main() -> None:
@@ -240,7 +285,16 @@ def main() -> None:
     if args.readcsv:
         g2g_delays, stats = read_measurements_from_csv(args.filename)
     else:
-        g2g_delays = read_measurements_from_arduino(args.num_measurements, args.quiet)
+        serial = find_arduino_on_serial_port()
+        print("Warmup serial (3 sec)")
+        time.sleep(3)
+
+        if args.calibrate:
+            print("\nCalibrating")
+            calibrate(serial)
+
+
+        g2g_delays = read_measurements_from_arduino(serial, args.num_measurements, args.quiet)
         stats = generate_stats(g2g_delays)
         write_measurements_to_csv(args.filename, g2g_delays, stats)
 
