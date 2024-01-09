@@ -2,11 +2,8 @@
 
 **;TLDR**
 - The Arduino should already be loaded with the correct script. If, for any reason, that is not the case, the code for the arduino is situated in the folder [Arduino_code/latency_test](Arduino_code/latency_test/).
-- To use this system, run the python script [G2GDelay.py](G2GDelay.py).
-It is recommended to calibrate the sensor before every run:
-  ```shell
-  python G2Gdelay.py -C
-  ``` 
+- To use this system, run the script [run.bat](run.bat)
+
 
 
   
@@ -19,13 +16,19 @@ All the arguments are also described under [Arguments](#arguments)
 
 
 ## Usage
+0. Setup python environment using [setup.bat](setup.bat). (Make sure you have python installed before running setup.bat. The system is tested with python3.11)
 1. Connect the Arduino to the computer
 2. The sensor should be pointed directly towards the screen.
 <p align="left">
-  <img height="250" src="./Images/SensorMonitor.png">
+  <img height="250" src="./docs/Images/SensorMonitor.png">
 </p>
 
-3. Run the python script [G2GDelay.py](G2GDelay.py)
+3. Run the script using [run.bat](run.bat). (This will activate a python virtual environment and run the python script with calibrationa and 30 samples)
+3.1 . Optionally, activate the virtual enviroment and run the python script. This will allow for arguments:
+For example with calibration
+  ```shell
+  python G2Gdelay.py -C
+  ``` 
 4. Make sure that there is a significant contrast on the screen between when the led is on and when the led is off. 
 
 
