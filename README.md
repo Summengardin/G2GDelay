@@ -1,5 +1,40 @@
 # Glass to Glass Delay Measurement System
 
+**;TLDR**
+- The Arduino should already be loaded with the correct script. If, for any reason, that is not the case, the code for the arduino is situated in the folder [Arduino_code/latency_test](Arduino_code/latency_test/).
+- To use this system, run the python script [G2GDelay.py](G2GDelay.py).
+It is recommended to calibrate the sensor before every run:
+  ```shell
+  python G2Gdelay.py -C
+  ``` 
+
+
+  
+**Note:** The python script includes more arguments for configuration. 
+For more information run the script with -h argument.
+```shell
+python G2Gdelay.py -h
+``` 
+All the arguments are also described under [Arguments](#arguments)
+
+
+## Usage
+1. Connect the Arduino to the computer
+2. The sensor should be pointed directly towards the screen.
+<p align="left">
+  <img height="250" src="./Images/SensorMonitor.png">
+</p>
+
+3. Run the python script [G2GDelay.py](G2GDelay.py)
+4. Make sure that there is a significant contrast on the screen between when the led is on and when the led is off. 
+
+
+
+
+
+--- 
+**Original README**
+
 ![Build](https://github.com/cbachhuber/G2GDelay/actions/workflows/build_arduino_code.yml/badge.svg)
 
 This repository contains all the information and software you need to build your own Glass-to-Glass delay measurement system with an accuracy of 0.5 milliseconds (read the papers referenced in the [conclusion](#conclusion) section for more details on the theory of operation). You will need the hardware (altogether less than $50) detailed in the [construction manual](#construction-manual) below. After that, follow the [software setup](#software-setup) and [hardware setup](#hardware-setup) and you'll be good to go to [take some measurements](#taking-measurements)!
@@ -55,6 +90,37 @@ This is the quickest way to get measurements. Run the Arduino IDE and open the S
 
 ### Python Script
 This is a convenient way to observe and interpret measurements. [delayrecorder.py](delayrecorder.py) will take the desired filename and number of measurements, and it will generate a histogram with statistics and save the results. You can call it with `./delayrecorder.py -h` for more usage details and other options.
+
+#### Arguments:
+```shell
+
+usage: G2GDelay.py [-h] [-num_measurements [NUM_MEASUREMENTS]] [-threshold_offset [THRESHOLD_OFFSET]] [--quiet]
+                   [--readcsv] [--calibrate]
+                   [filename]
+
+This script obtains delay measurements from a Glass-to-Glass device connected via USB, saves results and statistics to
+a CSV file, and displays the results in a histogram plot. You can also use it to display results from saved
+measurements in a previous test, in which case the CSV file is read from rather than written to.
+
+positional arguments:
+  filename              The name of the CSV file where the data is saved. It is also the name for the saved plot.
+                        Default is 'results.csv' which will cause 'results.png' to be created as well. This is the
+                        filename used when using the '--readcsv' option as well.
+
+options:
+  -h, --help            show this help message and exit
+  -n [NUM_MEASUREMENTS], -num_measurements [NUM_MEASUREMENTS] 
+                        An integer for the number of measurements to save and use when generating statistics. Default
+                        is 100.
+  -t [THRESHOLD_OFFSET], -threshold_offset [THRESHOLD_OFFSET]
+                        The threshold for distinguishing between light and dark.
+  --quiet, -q           The script won't print the measurements to the terminal (but will still save them into the CSV
+                        file).
+  --readcsv, -r         Reads a previously generated CSV and plots it. Be sure to provide the name of the CSV file if
+                        it's not the default name.
+  --calibrate, -c       Calibrate sensor before running measurements.This will check the sensor values for when the
+                        led is on and off, and set the threshold thereafter
+```
 
 ## Troubleshooting
 

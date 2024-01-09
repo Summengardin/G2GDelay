@@ -53,6 +53,14 @@ def parse_arguments():
         help="An integer for the number of measurements to save and use when generating statistics. Default is 100.",
     )
     parser.add_argument(
+        "-threshold_offset",
+        "-t",
+        nargs="?",
+        default=10,
+        type=int,
+        help="The threshold for distinguishing between light and dark.",
+    )
+    parser.add_argument(
         "--quiet",
         "-q",
         action="store_true",
@@ -93,7 +101,7 @@ def find_arduino_on_serial_port() -> serial.Serial:
 
 def read_measurements_from_arduino(serial: serial.Serial, num_measurements: int, quiet_mode: bool) -> List[float]:
     
-    if num_measurements > 100: num_measurements = 100
+    if num_measurements > 1000: num_measurements = 1000
 
     print(f"Collecting {num_measurements} measurements from the Arduino")
     if quiet_mode:
@@ -200,7 +208,7 @@ def plot_results(measurements: List[float], stats: Stats, png_file: Path) -> Non
     
     # Histogram
     fig_h = plt.figure()
-    ax_h = fig_h.add_subplot(111)
+    ax_h = fig_h.add_subplot(211)
     
     ax_h.hist(measurements, bins=20) 
     fig_h.canvas.manager.set_window_title(png_file.name)
@@ -242,12 +250,13 @@ def plot_results(measurements: List[float], stats: Stats, png_file: Path) -> Non
 
   
     # Linear plot
-    fig_l = plt.figure()
-    ax_l = fig_l.add_subplot(111)
+    ax_l = fig_h.add_subplot(212)
 
-    fig_l.canvas.manager.set_window_title("Linear plot")
     x_range = range(len(measurements))
-    ax_l.plot(x_range, measurements, marker='o')  # Plot measurements
+    ax_l.plot(x_range, measurements, marker='o') 
+    ax_l.set_title("Linear plot")
+    ax_l.set_xlabel("Sample")
+    ax_l.set_ylabel("Latency (ms)")
 
     plt.show()
 
@@ -261,9 +270,12 @@ def writeToSerial(serial: serial.Serial, data):
     #print(response + "\n")
 
 
-def calibrate(serial: serial.Serial):
+def calibrate(serial: serial.Serial, threshold_offset: int):
     writeToSerial(serial, "cali")
+    _ = serial.readline().decode().rstrip('\r\n')
+    writeToSerial(serial, str(threshold_offset))
     response = serial.readline().decode().rstrip('\r\n')
+    #_ = serial.readline().decode().rstrip('\r\n')
     print("Done calibrating. Results:")     
     print(response + "\n")
 
@@ -291,7 +303,7 @@ def main() -> None:
 
         if args.calibrate:
             print("\nCalibrating")
-            calibrate(serial)
+            calibrate(serial, args.threshold_offset)
 
 
         g2g_delays = read_measurements_from_arduino(serial, args.num_measurements, args.quiet)
