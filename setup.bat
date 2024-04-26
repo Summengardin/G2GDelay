@@ -3,7 +3,7 @@ set VENV_NAME=.venv
 set SCRIPT_PATH=G2GDelay.py
 
 echo Creating virtual environment...
-python -m venv %VENV_NAME%
+py -m venv %VENV_NAME%
 
 echo Activating virtual environment...
 call %VENV_NAME%\Scripts\activate

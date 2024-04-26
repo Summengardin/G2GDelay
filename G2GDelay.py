@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import os
 import sys
 import argparse
 import signal
@@ -22,10 +22,6 @@ class Stats:
     median_delay: float
     std_dev: float
 
-
-def sigint_handler(signal, frame):
-    print("Caught KeyboardInterrupt, exiting.")
-    sys.exit(0)
 
 
 def parse_arguments():
@@ -99,9 +95,10 @@ def find_arduino_on_serial_port() -> serial.Serial:
     raise ConnectionRefusedError("Did not find Arduino on any serial port. Is it connected?")
 
 
-def read_measurements_from_arduino(serial: serial.Serial, num_measurements: int, quiet_mode: bool) -> List[float]:
-    
-    if num_measurements > 1000: num_measurements = 1000
+
+def read_measurements_from_arduino(serial: serial.Serial, args) -> List[float]:
+    num_measurements = args.num_measurements
+    quiet_mode = args.quiet
 
     print(f"Collecting {num_measurements} measurements from the Arduino")
     if quiet_mode:
@@ -121,39 +118,43 @@ def read_measurements_from_arduino(serial: serial.Serial, num_measurements: int,
     overall_rounds = 0
     init_message = 0
 
-    while i < num_measurements:
-        overall_rounds += 1
-        a = serial.readline().decode()
-        if "." in a:
-            init_message = 1
-            i += 1
-            a = a.replace("\n", "")
-            a = a.replace("\r", "")
-            measurements.append(float(a))
-            if not quiet_mode:
-                print(f"G2G Delay trial {i}/{num_measurements}: {a} ms")
-            else:
-                print(f"G2G Delay trial {i}/{num_measurements}", end="\r")
-        else:
-            if overall_rounds > 0 and init_message == 1:
-                print(
-                    "Did not receive msmt data from the Arduino for another 5 seconds. "
-                    "Is the phototransistor still sensing the LED?"
-                )
-            else:
-                print(
-                    """Did not receive msmt data from the Arduino for 5 seconds.
-Is the LED showing up on the screen?
-Is the phototransistor pointing towards the screen?
-Is the screen brightness high enough (max recommended)?"""
-                )
+    try: 
+        while i < num_measurements:
+            overall_rounds += 1
+            a = serial.readline().decode()
+            if "." in a:
                 init_message = 1
+                i += 1
+                a = a.replace("\n", "")
+                a = a.replace("\r", "")
+                measurements.append(float(a))
+                append_measurement_to_csv(args.filename, [a])
+                if not quiet_mode:
+                    print(f"[{i}/{num_measurements}]: {a} ms")
+            else:
+                if overall_rounds > 0 and init_message == 1:
+                    print(
+                        "Did not receive msmt data from the Arduino for another 5 seconds. "
+                        "Is the phototransistor still sensing the LED?"
+                    )
+                else:
+                    print(
+                        """Did not receive msmt data from the Arduino for 5 seconds.
+    Is the LED showing up on the screen?
+    Is the phototransistor pointing towards the screen?
+    Is the screen brightness high enough (max recommended)?"""
+                    )
+                    init_message = 1
+    except KeyboardInterrupt:
+        print("Process interrupted by user, returning to main menu...")
+        serial.close()
+        time.sleep(2)
 
     return measurements
 
 
 def write_measurements_to_csv(csv_file: Path, measurements: List[float], stats: Stats) -> None:
-    with open(csv_file, "w") as f:
+    with open(csv_file, "w", newline='') as f:
         writer = csv.writer(f)
         writer.writerow(["Samples", "Min", "Max", "Mean", "Median", "stdDev"])
         writer.writerow(
@@ -169,6 +170,22 @@ def write_measurements_to_csv(csv_file: Path, measurements: List[float], stats: 
         writer.writerow(measurements)
 
     print(f"Saved results to {csv_file}")
+
+def write_measurements_to_csv(csv_file: Path, measurements: List[float]) -> None:
+    with open(csv_file, "w", newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(["latency"])
+        for measurement in measurements:
+            writer.writerow([measurement])
+
+    print(f"Saved results to {csv_file}")
+    
+def append_measurement_to_csv(csv_file: Path, measurements: List[float]) -> None:
+    with open(csv_file, "a", newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(["latency"])
+        for measurement in measurements:
+            writer.writerow([measurement])
 
 
 def read_measurements_from_csv(csv_file: Path):
@@ -279,39 +296,201 @@ def calibrate(serial: serial.Serial, threshold_offset: int):
     print("Done calibrating. Results:")     
     print(response + "\n")
 
+def test_light(serial: serial.Serial, seconds: int):
+    writeToSerial(serial, "light_on")
+    _ = serial.readline().decode().rstrip('\r\n')
+    writeToSerial(serial, str(seconds))
+    time.sleep(seconds)
+    _ = serial.readline().decode().rstrip('\r\n')
+    writeToSerial(serial, "light_off")    
+
 
 def initMeasurement(serial: serial.Serial, numMeasurement):
     writeToSerial(serial, "meas")
     response = serial.readline().decode().rstrip('\r\n')
     writeToSerial(serial, str(numMeasurement))
 
+def clear():
+    os.system("clear") if os.name == "posix" else os.system("cls")
 
+def print_main_menu():
+    clear()
+    print("********************************************")
+    print("*       Glass to glass measuring tool      *")
+    print("********************************************")
+    print("*                                          *")
+    print("*     [1] Start measuring                  *")
+    print("*     [2] Read from CSV                    *")
+    print("*     [3] Setup                            *")
+    print("*     [4] Test light (Not implemented yet) *")
+    print("*     [5] Calibrate (Not implemented yet)  *")
+    print("*     [0] Exit                             *")
+    print("*                                          *")
+    print("********************************************")
+    print("Please enter your choice:")
+    
+def print_setup_menu():
+    clear()
+    print("********************************************")
+    print("*                Setup                     *")
+    print("********************************************")
+    print("*                                          *")
+    print("*     [1] Change number of measurements    *")
+    print("*     [2] Change threshold offset          *")
+    print("*     [3] Set quiet mode                   *")
+    print("*     [4] Change filename                  *")
+    print("*     [5] Set calibration mode             *")
+    print("*     [6] Back                             *")
+    print("*                                          *")
+    print("********************************************")
+    print("Please enter your choice:")
+    
+def print_calibration_menu():
+    clear()
+    print("********************************************")
+    print("*                Calibration               *")
+    print("********************************************")
+    print("*                                          *")
+    print("*     [1] Set calibration mode ON          *")
+    print("*     [2] Set calibration mode OFF         *")
+    print("*     [3] Back                             *")
+    print("*                                          *")
+    print("********************************************")
+    print("Please enter your choice:")
+    
+def print_quiet_menu():
+    clear()
+    print("********************************************")
+    print("*                Quiet mode                *")
+    print("********************************************")
+    print("*                                          *")
+    print("*     [1] Set quiet mode ON                *")
+    print("*     [2] Set quiet mode OFF               *")
+    print("*     [3] Back                             *")
+    print("*                                          *")
+    print("********************************************")
+    print("Please enter your choice:")
+
+
+
+def menu(args):
+    
+    while True:
+        try:
+            print_main_menu()
+            choice = input()
+
+            if choice == "1":
+                serial = find_arduino_on_serial_port()
+                print("Warmup serial (3 sec)")
+                time.sleep(3)
+
+                if args.calibrate:
+                    print("\nCalibrating")
+                    calibrate(serial, args.threshold_offset)
+
+                g2g_delays = read_measurements_from_arduino(serial, args)
+                stats = generate_stats(g2g_delays)
+                try:
+                    write_measurements_to_csv(args.filename, g2g_delays) # , stats)
+                except:
+                    print(g2g_delays)
+
+                plot_results(g2g_delays, stats, args.filename.with_suffix(".png"))
+
+            elif choice == "2":
+                filename = input("Enter the name of the CSV file: ")
+                g2g_delays, stats = read_measurements_from_csv(filename)
+                plot_results(g2g_delays, stats, filename.with_suffix(".png"))
+
+            elif choice == "3":
+                while True:
+                    print_setup_menu()
+                    choice = input()
+                    
+                    if choice == "1":
+                        print("Current number of measurements is", args.num_measurements)
+                        args.num_measurements = int(input("Enter new number of measurements: "))
+                        break
+                    elif choice == "2":
+                        print("Current threshold offset is", args.threshold_offset)
+                        args.threshold_offset = int(input("Enter new threshold offset: "))
+                        break
+                    elif choice == "3":
+                        
+                        while True:
+                            print_quiet_menu()
+                            print("Current quiet mode is", args.quiet)
+                            choice = input()
+                            if choice == "1":
+                                args.quiet = True
+                                break
+                            elif choice == "2":
+                                args.quiet = False
+                                break
+                            elif choice == "3":
+                                break
+                            else:
+                                print("Invalid choice. Please try again.")
+                        break                     
+                    elif choice == "4":
+                        clear()
+                        print("Current filename is", args.filename)
+                        args.filename = Path(input("Enter new filename: "))
+                        break
+                    elif choice == "5":
+                        while True:
+                            print_calibration_menu()
+                            print("Current calibration mode is", args.calibrate)
+                            choice = input()
+                            if choice == "1":
+                                args.calibrate = True
+                                break
+                            elif choice == "2":
+                                args.calibrate = False
+                                break
+                            elif choice == "3":
+                                break
+                            else:
+                                print("Invalid choice. Please try again.")
+                        break
+                    elif choice == "6":
+                        break
+                        
+            elif choice == "4":
+                print("Not implemented yet")
+                time.sleep(5)
+                
+            elif choice == "5":
+                print("Not implemented yet")
+                time.sleep(5)
+                
+            elif choice == "0":
+                print("Exiting...")
+                sys.exit(0)
+
+            else:
+                print("Invalid choice. Please try again.")
+    
+        except ConnectionRefusedError as e:
+            print(f'ConnectionRefusedError: {e}')
+            print("Try again in 5 seconds...")
+            time.sleep(5)
+                    
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            print("Trying again in 5 seconds...")
+            time.sleep(5)
+        except KeyboardInterrupt:
+            print("Exiting...")
+            time.sleep(5)
+            break
 
 
 def main() -> None:
-    # Set up signal handler to handle keyboard interrupts
-    signal.signal(signal.SIGINT, sigint_handler)
-
     args = parse_arguments()
-
-    if args.readcsv:
-        g2g_delays, stats = read_measurements_from_csv(args.filename)
-    else:
-        serial = find_arduino_on_serial_port()
-        print("Warmup serial (3 sec)")
-        time.sleep(3)
-
-        if args.calibrate:
-            print("\nCalibrating")
-            calibrate(serial, args.threshold_offset)
-
-
-        g2g_delays = read_measurements_from_arduino(serial, args.num_measurements, args.quiet)
-        stats = generate_stats(g2g_delays)
-        write_measurements_to_csv(args.filename, g2g_delays, stats)
-
-    plot_results(g2g_delays, stats, args.filename.with_suffix(".png"))
-
+    
+    menu(args)
 
 if __name__ == "__main__":
     main()
