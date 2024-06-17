@@ -126,5 +126,5 @@ if __name__ == "__main__":
         print("Usage: python script.py <path_to_csv>")
     else:
         file_path = sys.argv[1]
-        plot_latency_statistics(file_path)
-        # plot_histogram(file_path)
+        plot_latency_statistics(file_path, 1)
+        plot_histogram(file_path)
