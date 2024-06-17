@@ -73,6 +73,7 @@ def parse_arguments():
         "--calibrate",
         "-c",
         action="store_true",
+        default=True,
         help="Calibrate sensor before running measurements."
         "This will check the sensor values for when the led is on and off, and set the threshold thereafter",
     )
