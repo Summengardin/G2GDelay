@@ -308,26 +308,26 @@ def calibrate(serial: serial.Serial, threshold_offset: int):
 def test_light(serial: serial.Serial, seconds: float):
     write_to_serial(serial, "light_on")
     _ = serial.readline().decode().rstrip('\r\n')
-    if seconds < 0.0001:
-        try:
+    
+    try:
+        if seconds < 0.0001:      
             while True:
                 measurement = serial.readline().decode().rstrip('\r\n')
                 print(measurement)
-        except KeyboardInterrupt:
-            print("Done testing light.")
-            pass
-    else:
-        try:
+        else:
             start_time = time.time()
             while time.time() - start_time < seconds:
                 measurement = serial.readline().decode().rstrip('\r\n')
                 print(measurement)
-        except KeyboardInterrupt:
-            print("Done testing light.")
-            pass
+    except KeyboardInterrupt:
+        pass
+    finally:
+        write_to_serial(serial, "light_off")
+        print("Done testing light.")
+        print("Turning off light (3s)")
+        time.sleep(3)
+
     
-    write_to_serial(serial, "light_off") 
-    _ = serial.readline().decode().rstrip('\r\n')
 
 def initMeasurement(serial: serial.Serial, numMeasurement):
     write_to_serial(serial, "meas")

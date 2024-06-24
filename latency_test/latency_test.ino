@@ -222,15 +222,14 @@ void processSerial() {
         current = 0;
         //startTimer();
     }
-    else if(command == "light_on" and state == s_TEST_LIGHT)
+    else if(command == "light_on")
     {
       LED_ON();
       Serial.println();
     }
-    else if(command == "light_off" and state == s_TEST_LIGHT)
+    else if(command == "light_off")
     {
       LED_OFF();
-      Serial.println();
     }
     else if(command == "stop")
     {
