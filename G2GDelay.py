@@ -77,6 +77,14 @@ def parse_arguments():
         help="Calibrate sensor before running measurements."
         "This will check the sensor values for when the led is on and off, and set the threshold thereafter",
     )
+    parser.add_argument(
+        "--light_time",
+        "-l",
+        nargs="?",
+        default=0,
+        type=float,
+        help="The time in seconds the light is on. 0 means until stopped",
+    )
 
     args = parser.parse_args()
     if args.filename.suffix != ".csv":
@@ -148,7 +156,6 @@ def read_measurements_from_arduino(serial: serial.Serial, args) -> List[float]:
                     init_message = 1
     except KeyboardInterrupt:
         print("Process interrupted by user, returning to main menu...")
-        serial.close()
         time.sleep(2)
 
     return measurements
@@ -279,8 +286,8 @@ def plot_results(measurements: List[float], stats: Stats, png_file: Path) -> Non
     plt.show()
 
 
-def writeToSerial(serial: serial.Serial, data):
-    #print(f"Writing to serial: {data}")
+def write_to_serial(serial: serial.Serial, data):
+    # print(f"Writing to serial: {data}")
     serial.write(data.encode())
     time.sleep(0.05)
     #response = serial.readline().decode().rstrip('\r\n')
@@ -289,27 +296,43 @@ def writeToSerial(serial: serial.Serial, data):
 
 
 def calibrate(serial: serial.Serial, threshold_offset: int):
-    writeToSerial(serial, "cali")
-    _ = serial.readline().decode().rstrip('\r\n')
-    writeToSerial(serial, str(threshold_offset))
+    write_to_serial(serial, "cali")
+    _ = serial.readline().decode().rstrip('\r\n') 
+    # print(_)
+    write_to_serial(serial, str(threshold_offset))
     response = serial.readline().decode().rstrip('\r\n')
     #_ = serial.readline().decode().rstrip('\r\n')
     print("Done calibrating. Results:")     
     print(response + "\n")
 
-def test_light(serial: serial.Serial, seconds: int):
-    writeToSerial(serial, "light_on")
+def test_light(serial: serial.Serial, seconds: float):
+    write_to_serial(serial, "light_on")
     _ = serial.readline().decode().rstrip('\r\n')
-    writeToSerial(serial, str(seconds))
-    time.sleep(seconds)
+    if seconds < 0.0001:
+        try:
+            while True:
+                measurement = serial.readline().decode().rstrip('\r\n')
+                print(measurement)
+        except KeyboardInterrupt:
+            print("Done testing light.")
+            pass
+    else:
+        try:
+            start_time = time.time()
+            while time.time() - start_time < seconds:
+                measurement = serial.readline().decode().rstrip('\r\n')
+                print(measurement)
+        except KeyboardInterrupt:
+            print("Done testing light.")
+            pass
+    
+    write_to_serial(serial, "light_off") 
     _ = serial.readline().decode().rstrip('\r\n')
-    writeToSerial(serial, "light_off")    
-
 
 def initMeasurement(serial: serial.Serial, numMeasurement):
-    writeToSerial(serial, "meas")
-    response = serial.readline().decode().rstrip('\r\n')
-    writeToSerial(serial, str(numMeasurement))
+    write_to_serial(serial, "meas")
+    _ = serial.readline().decode().rstrip('\r\n')
+    write_to_serial(serial, str(numMeasurement))
 
 def clear():
     os.system("clear") if os.name == "posix" else os.system("cls")
@@ -323,8 +346,8 @@ def print_main_menu():
     print("*     [1] Start measuring                  *")
     print("*     [2] Read from CSV                    *")
     print("*     [3] Setup                            *")
-    print("*     [4] Test light (Not implemented yet) *")
-    print("*     [5] Calibrate (Not implemented yet)  *")
+    print("*     [4] Test light (Alpha)               *")
+    print("*     [5] Calibrate                        *")
     print("*     [0] Exit                             *")
     print("*                                          *")
     print("********************************************")
@@ -340,7 +363,7 @@ def print_setup_menu():
     print("*     [2] Change threshold offset          *")
     print("*     [3] Set quiet mode                   *")
     print("*     [4] Change filename                  *")
-    print("*     [5] Set calibration mode             *")
+    print("*     [5] Toggle calibration before meas.  *")
     print("*     [6] Back                             *")
     print("*                                          *")
     print("********************************************")
@@ -352,8 +375,8 @@ def print_calibration_menu():
     print("*                Calibration               *")
     print("********************************************")
     print("*                                          *")
-    print("*     [1] Set calibration mode ON          *")
-    print("*     [2] Set calibration mode OFF         *")
+    print("*     [1] Calibrate before meas. ON        *")
+    print("*     [2] Calibrate before meas. OFF       *")
     print("*     [3] Back                             *")
     print("*                                          *")
     print("********************************************")
@@ -391,6 +414,8 @@ def menu(args):
                     calibrate(serial, args.threshold_offset)
 
                 g2g_delays = read_measurements_from_arduino(serial, args)
+                serial.close()
+
                 stats = generate_stats(g2g_delays)
                 try:
                     write_measurements_to_csv(args.filename, g2g_delays) # , stats)
@@ -459,12 +484,34 @@ def menu(args):
                         break
                         
             elif choice == "4":
-                print("Not implemented yet")
-                time.sleep(5)
+                serial = find_arduino_on_serial_port()
+                print("Warmup serial (3 sec)")
+                time.sleep(3)
+
+                write_to_serial(serial, "test_light")
+                _ = serial.readline().decode().rstrip('\r\n')
+                try:
+                    test_light(serial, args.light_time)
+                except Exception as e:
+                    print(f"Error: {e}")
+                    print("Failed to test light")
+
+                write_to_serial(serial, "stop")
+                serial.close()
+                time.sleep(2)
                 
             elif choice == "5":
-                print("Not implemented yet")
-                time.sleep(5)
+                serial = find_arduino_on_serial_port()
+                print("Warmup serial (3 sec)")
+                time.sleep(3)
+
+                if args.calibrate:
+                    print("\nCalibrating")
+                    calibrate(serial, args.threshold_offset)
+
+                write_to_serial(serial, "stop")
+                serial.close()
+                time.sleep(2)
                 
             elif choice == "0":
                 print("Exiting...")

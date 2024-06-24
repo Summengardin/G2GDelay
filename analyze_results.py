@@ -10,7 +10,7 @@ argsparser.add_argument("--file", "-f", type=str, default="./results.csv", help=
 argsparser.add_argument("--window", "-w", type=int, default=1, help="Window size for the moving average")
 argsparser.add_argument("--nbins", "-n", type=int, default=15, help="Number of bins for the histogram")
 argsparser.add_argument("--percentile", "-p", type=float, default=0.95, help="Percentile for the range plot")
-argsparser.add_argument("--remove_outliers", "-r", type=bool, default=False, help="Remove outliers from the data")
+argsparser.add_argument("--remove_outliers", "-r", action="store_true", default=False, help="Remove outliers from the data")
 argsparser.add_argument("--z-threshold", "-z", type=float, default=3, help="z-score threshold for outlier removal")
 
 
