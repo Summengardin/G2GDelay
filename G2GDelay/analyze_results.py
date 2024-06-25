@@ -5,13 +5,17 @@ import numpy as np
 
 import argparse
 
-argsparser = argparse.ArgumentParser(description="Analyze the latency from G2GDelay measurer. ")
-argsparser.add_argument("--file", "-f", type=str, default="./results.csv", help="Path to the CSV file with the latency data")
-argsparser.add_argument("--window", "-w", type=int, default=1, help="Window size for the moving average")
-argsparser.add_argument("--nbins", "-n", type=int, default=15, help="Number of bins for the histogram")
-argsparser.add_argument("--percentile", "-p", type=float, default=0.95, help="Percentile for the range plot")
-argsparser.add_argument("--remove_outliers", "-r", action="store_true", default=False, help="Remove outliers from the data")
-argsparser.add_argument("--z-threshold", "-z", type=float, default=3, help="z-score threshold for outlier removal")
+
+def parse_arguments():
+    argsparser = argparse.ArgumentParser(description="Analyze the latency from G2GDelay measurer. ")
+    argsparser.add_argument("--file", "-f", type=str, default="./results.csv", help="Path to the CSV file with the latency data")
+    argsparser.add_argument("--window", "-w", type=int, default=1, help="Window size for the moving average")
+    argsparser.add_argument("--nbins", "-n", type=int, default=15, help="Number of bins for the histogram")
+    argsparser.add_argument("--percentile", "-p", type=float, default=0.95, help="Percentile for the range plot")
+    argsparser.add_argument("--remove_outliers", "-r", action="store_true", default=False, help="Remove outliers from the data")
+    argsparser.add_argument("--z-threshold", "-z", type=float, default=3, help="z-score threshold for outlier removal")
+
+    return argsparser.parse_args()
 
 
 BASE_COLOR = sns.color_palette("flare")[5]
@@ -184,10 +188,15 @@ def plot_both(args):
     plt.show()
 
 
-if __name__ == "__main__":
+def main():
     import sys
 
-    args = argsparser.parse_args(sys.argv[1:])
+    args = parse_arguments()
     # plot_latency_statistics(args)
     # plot_latency_histogram(args)
     plot_both(args)
+
+
+
+if __name__ == "__main__":
+    main
