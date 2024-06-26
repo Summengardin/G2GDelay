@@ -9,6 +9,7 @@ unsigned int current;
 String command;
 
 unsigned long threshold = 7;
+unsigned long threshold_offset = 10;
 unsigned long min = 0;
 unsigned long max = 0;
 unsigned long average = 0;
@@ -17,23 +18,46 @@ unsigned long start;
 unsigned long end;
 unsigned int i;
 
+
 const unsigned int RANDOM_DELAY_MIN = 1000;
 const unsigned int RANDOM_DELAY_MAX = 2000;
 const unsigned int CALIBRATION_SAMPLES = 10;
 
+
+const int s_IDLE = 0;
+const int s_CALIBRATE = 1;
+const int s_TEST_LIGHT = 2;
+const int s_MEASUREMENT = 3;
+int state = s_IDLE;
+
+bool led_state = false;
+bool is_calibrated = false;
+
 bool running = false;
 
+
+void LED_ON() {
+  led_state = true;
+  digitalWrite(LED_PIN, 1);
+}
+
+void LED_OFF() {
+  led_state = false;
+  digitalWrite(LED_PIN, 0);
+}
+
+
 void calibration() {
-  digitalWrite(LED_PIN, 0);
+  LED_OFF();
   delay(100);
-  digitalWrite(LED_PIN, 1);
+  LED_ON();
   delay(100);
-  digitalWrite(LED_PIN, 0);
+  LED_OFF();
   delay(100);
-  digitalWrite(LED_PIN, 1);
+  LED_ON();
   delay(100);
 
-  digitalWrite(LED_PIN, 0);
+  LED_OFF();
   delay(2500); // Allowing for a 2.5 seconds maximum delay
   for (int i = 0; i < CALIBRATION_SAMPLES; i++){
     min += analogRead(PHOTO_PIN);
@@ -42,7 +66,7 @@ void calibration() {
   min /= CALIBRATION_SAMPLES;
   
 
-  digitalWrite(LED_PIN, 1);
+  LED_ON();
   delay(2500); // Allowing for a 2.5 seconds maximum delay
   for (int i = 0; i < CALIBRATION_SAMPLES; i++){
     max += analogRead(PHOTO_PIN);
@@ -50,7 +74,7 @@ void calibration() {
   }
   max /= CALIBRATION_SAMPLES;
 
-  digitalWrite(LED_PIN, 0);
+  LED_OFF();
 
   /* Threshold is the minimum value increased by 10.
    *  
@@ -58,14 +82,27 @@ void calibration() {
    * the less time is "wasted" for the LED to be bright enough. We are talking about
    * potentially 100us just  by increasing the threshold by 10.
    */
+
+  if (min >= max)
+  { 
+    Serial.print("Error: min: ");
+    Serial.print(min);
+    Serial.print(" max: ");
+    Serial.print(max);
+    Serial.println(". Not enough light to calibrate. Calibration failed.");
+    return;
+  }
   
-  if (max > min + 10)
+  if (max > min + threshold_offset)
   {
-      threshold = min + 10;
-  } else
+    threshold = min + threshold_offset;
+  }
+  else
   {
     threshold = int((max - min)/2 + min);
   }
+
+  is_calibrated = true;
 
 
 
@@ -76,6 +113,16 @@ void calibration() {
   Serial.print(" Threshold: ");
   Serial.println(threshold);
 }
+
+void testLight() {
+
+  LED_ON();
+  double reading = takeMeasurement(); 
+  Serial.println(reading/1000);
+  Serial.println();
+
+}
+
 
 void printResults() {
   average = 0;
@@ -128,7 +175,7 @@ void setup() {
   pinMode(PHOTO_PIN, INPUT);
 
   pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, 0);
+  LED_OFF();
 
   Serial.begin(115200);
   //Serial.println("#################");
@@ -140,11 +187,22 @@ void setup() {
 void processSerial() {
   if(Serial.available() > 0) {
     command = Serial.readString();
-    if(command == "cali")
-    {
-      //Serial.println("Running Calibration...");
+    command.trim();
 
+    if(command == "cali")
+    { 
+        Serial.println();
+        threshold_offset = Serial.parseInt();
+      //Serial.println("Running Calibration...");
+        state = s_CALIBRATE;
         calibration();
+        state = s_IDLE;
+        return;
+    }
+    else if (command == "test_light")
+    {
+        state = s_TEST_LIGHT;
+        Serial.println();
         return;
     }
     else if(command == "meas")
@@ -159,42 +217,70 @@ void processSerial() {
         // Dummy read otherwise the first measurement is a bit off.
         //analogRead(photoPin);
 
-        running = true;
+        state = s_MEASUREMENT;
+        
         current = 0;
         //startTimer();
     }
-
+    else if(command == "light_on")
+    {
+      LED_ON();
+      Serial.println();
+    }
+    else if(command == "light_off")
+    {
+      LED_OFF();
+    }
+    else if(command == "stop")
+    {
+      state = s_IDLE;
+      LED_OFF();
+    }
+    else
+    {
+      // Serial.println("Could not parse Serial");
+    }
   }
 }
 
 unsigned long takeMeasurement() {
   do {
-    digitalWrite(LED_PIN, 1);
+    LED_ON();
     start = micros();
     while(analogRead(PHOTO_PIN) < threshold);
     end = micros();
-    digitalWrite(LED_PIN, 0);
+    LED_OFF();
   } while(start > end); // Repeat the measuremtn if case the timer overflowed
 
   return end - start;
 }
 
+
 void loop() {
   processSerial();
 
-  while(running) {
+  if (state == s_IDLE){
+    LED_OFF();
+  }
+  if (state == s_CALIBRATE) {
+
+  }
+  else if (state == s_TEST_LIGHT) {
+    Serial.println(analogRead(PHOTO_PIN));
+    delay(100);
+  }
+  else if (state == s_MEASUREMENT) {
     double reading = takeMeasurement();
     measurements[current++] = reading;
     Serial.println(reading/1000);
     if(current >= measurement_count) {
-      running = false;
-      //printResults();
-
-      return;
+      state = s_IDLE;
+    } else {
+      delay(random(RANDOM_DELAY_MIN, RANDOM_DELAY_MAX));
     }
-
-    delay(random(RANDOM_DELAY_MIN, RANDOM_DELAY_MAX));
   }
 }
+
+
 
 

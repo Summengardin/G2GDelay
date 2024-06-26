@@ -1,6 +1,0 @@
-Original github:
-https://github.com/cbachhuber/G2GDelay
-
-Research:
-https://www.researchgate.net/publication/307516190_A_system_for_high_precision_glass-to-glass_delay_measurements_in_video_communication
-https://brushlesswhoop.com/measuring-fpv-latency/
