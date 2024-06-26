@@ -21,6 +21,12 @@ python3 -m venv venv
 pip install .
 ```
 
+- Delete temp files
+You can safely delete temporary directories created during installation: 
+`build` and `*.egg-info`
+
+
+
 
 ### Run
 - Acivate virtual environment (see Installation)
@@ -35,15 +41,14 @@ G2GDelay-analyze
 ```
 
 <br>
-<br>
-<br>
-<br>
 
-## Comprehensive guide
+
+## Additional info
 
 
 - The Arduino should already be loaded with the correct script. If, for any reason, that is not the case, the code for the arduino is situated in the folder [Arduino_code/latency_test](Arduino_code/latency_test/).
 - It is recommended to use a virtual environment to install this tool
+- Make sure that there is a significant contrast on the screen between when the led is on and when the led is off. 
 
 <br>
   
@@ -54,18 +59,8 @@ G2Gdelay -h
 ``` 
 
 
-
-## Usage
-1. Follow installation procedure in quick start. The system is tested on Linux and Windows using python version 3.10
-2. Run the tool as described in the quick start.
-
-\** Make sure that there is a significant contrast on the screen between when the led is on and when the led is off. 
-
-
-
 <br>
-<br>
-<br>
+
 
 
 ## References
