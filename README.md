@@ -26,6 +26,14 @@ You can safely delete temporary directories created during installation:
 `build` and `*.egg-info`
 
 
+- Run: 
+```
+G2GDelay
+```
+- For analyzes run:
+```
+G2GDelay-analyze
+```
 
 
 ### Run
