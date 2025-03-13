@@ -1,3 +1,4 @@
+# Usage: python setup.py install
 from setuptools import setup, find_packages
 
 def parse_requirements(filename):
